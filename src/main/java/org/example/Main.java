@@ -2,17 +2,16 @@ package org.example;
 
 import net.minestom.server.MinecraftServer;
 import net.minestom.server.coordinate.Pos;
+import net.minestom.server.coordinate.Vec;
 import net.minestom.server.entity.ItemEntity;
 import net.minestom.server.entity.Player;
-import net.minestom.server.event.EventFilter;
+import net.minestom.server.event.Event;
 import net.minestom.server.event.EventNode;
 import net.minestom.server.event.GlobalEventHandler;
 import net.minestom.server.event.item.ItemDropEvent;
 import net.minestom.server.event.item.PickupItemEvent;
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent;
 import net.minestom.server.event.player.PlayerBlockBreakEvent;
-import net.minestom.server.event.trait.ItemEvent;
-import net.minestom.server.event.trait.PlayerEvent;
 import net.minestom.server.extras.MojangAuth;
 import net.minestom.server.instance.InstanceContainer;
 import net.minestom.server.instance.InstanceManager;
@@ -22,9 +21,13 @@ import net.minestom.server.item.ItemStack;
 import net.minestom.server.item.Material;
 
 import java.time.Duration;
+import java.util.Random;
 
 public class Main {
+
     public static void main(String[] args) {
+
+        Random random = new Random();
 
         MinecraftServer server = MinecraftServer.init();
         InstanceManager instanceManager = MinecraftServer.getInstanceManager();
@@ -46,21 +49,22 @@ public class Main {
                 player.setRespawnPoint(new Pos(0, 42, 0));
             });
 
-            EventNode<ItemEvent> itemDropsNode = EventNode.type("itemDrops", EventFilter.ITEM);
+            EventNode<Event> itemDropsNode = EventNode.all("itemDrops");
             handler.addChild(itemDropsNode);
 
             // Item Pickups
             itemDropsNode.addListener(PickupItemEvent.class, event -> {
                 if (!(event.getLivingEntity() instanceof Player player)) return;
-                
+                player.getInventory().addItemStack(event.getItemStack());
             });
 
             // Player Drops
             itemDropsNode.addListener(ItemDropEvent.class, event -> {
                 final Player player = event.getPlayer();
-                final float itemVelocity = 10f;
+
+                final float itemVelocity = 6f;
                 ItemEntity item = new ItemEntity(event.getItemStack());
-                item.setInstance(event.getInstance(), player.getPosition().add(0, 1, 0));
+                item.setInstance(event.getInstance(), player.getPosition().add(0, 1.42, 0));
                 item.setVelocity(player.getPosition().direction().mul(itemVelocity));
                 item.setPickupDelay(Duration.ofMillis(500));
             });
@@ -73,6 +77,14 @@ public class Main {
                 ItemEntity item = new ItemEntity(itemStack);
                 item.setInstance(event.getInstance(), event.getBlockPosition().add(0.5, 0.5, 0.5));
                 item.setPickupDelay(Duration.ofMillis(50));
+
+                final float horzVelocity = 1.45f;
+                final float upVelocityMin = 1.4f;
+                final float upVelocityExtra = 1.85f;
+                item.setVelocity(new Vec(random.nextFloat(2), 0, random.nextFloat(2))
+                    .sub(1, 0, 1) // range of -1 to 1
+                    .mul(horzVelocity)
+                    .add(0, upVelocityMin + random.nextFloat(upVelocityExtra), 0));
             });
         }
 
