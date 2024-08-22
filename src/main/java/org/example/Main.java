@@ -6,12 +6,13 @@ import net.minestom.server.coordinate.Vec;
 import net.minestom.server.entity.ItemEntity;
 import net.minestom.server.entity.Player;
 import net.minestom.server.event.Event;
+import net.minestom.server.event.EventFilter;
 import net.minestom.server.event.EventNode;
 import net.minestom.server.event.GlobalEventHandler;
 import net.minestom.server.event.item.ItemDropEvent;
 import net.minestom.server.event.item.PickupItemEvent;
-import net.minestom.server.event.player.AsyncPlayerConfigurationEvent;
-import net.minestom.server.event.player.PlayerBlockBreakEvent;
+import net.minestom.server.event.player.*;
+import net.minestom.server.event.trait.PlayerEvent;
 import net.minestom.server.extras.MojangAuth;
 import net.minestom.server.instance.InstanceContainer;
 import net.minestom.server.instance.InstanceManager;
@@ -48,7 +49,12 @@ public class Main {
                 event.setSpawningInstance(instance);
                 player.setRespawnPoint(new Pos(0, 42, 0));
             });
+            handler.addListener(PlayerSpawnEvent.class, event -> {
+                final Player player = event.getPlayer();
+                player.setAllowFlying(true);
+            });
 
+            //region Item Entity Interactions
             EventNode<Event> itemDropsNode = EventNode.all("itemDrops");
             handler.addChild(itemDropsNode);
 
@@ -86,6 +92,44 @@ public class Main {
                     .mul(horzVelocity)
                     .add(0, upVelocityMin + random.nextFloat(upVelocityExtra), 0));
             });
+            //endregion
+
+            //region Custom Player Movement
+            EventNode<PlayerEvent> playerMovementNode = EventNode.type("playerMovement", EventFilter.PLAYER);
+            handler.addChild(playerMovementNode);
+
+            // Horizontal Dash
+            playerMovementNode.addListener(PlayerSwapItemEvent.class, event -> {
+                final Player player = event.getPlayer();
+                event.setCancelled(true);
+
+                final float speed = 45f;
+                final float vertInfluence = 0.06f;
+                final float extraVertVelocity = 4.5f;
+                player.setVelocity(player.getPosition().direction()
+                    .mul(1, vertInfluence, 1)
+                    .normalize()
+                    .mul(speed)
+                    .add(0, extraVertVelocity, 0));
+            });
+
+            // Double Jump
+            playerMovementNode.addListener(PlayerStartFlyingEvent.class, event -> {
+                final Player player = event.getPlayer();
+                player.setFlying(false);
+
+                final float speed = 2f;
+                final float horzInfluence = 0.5f;
+                final float extraVertVelocity = 20.5f;
+                player.setVelocity(player.getVelocity().withY(0)
+                    .add(player.getPosition().direction()
+                        .mul(horzInfluence, 1, horzInfluence)
+                        .normalize()
+                        .mul(speed)
+                        .add(0, extraVertVelocity, 0)));
+            });
+
+            //endregion
         }
 
         MojangAuth.init();
