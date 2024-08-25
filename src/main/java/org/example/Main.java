@@ -3,6 +3,7 @@ package org.example;
 import net.minestom.server.MinecraftServer;
 import net.minestom.server.coordinate.Pos;
 import net.minestom.server.coordinate.Vec;
+import net.minestom.server.entity.GameMode;
 import net.minestom.server.entity.ItemEntity;
 import net.minestom.server.entity.Player;
 import net.minestom.server.event.Event;
@@ -13,22 +14,23 @@ import net.minestom.server.event.item.ItemDropEvent;
 import net.minestom.server.event.item.PickupItemEvent;
 import net.minestom.server.event.player.*;
 import net.minestom.server.event.trait.PlayerEvent;
-import net.minestom.server.extras.MojangAuth;
 import net.minestom.server.instance.InstanceContainer;
 import net.minestom.server.instance.InstanceManager;
 import net.minestom.server.instance.LightingChunk;
 import net.minestom.server.instance.block.Block;
 import net.minestom.server.item.ItemStack;
 import net.minestom.server.item.Material;
+import org.example.commands.GMACommand;
+import org.example.commands.GMCCommand;
+import org.example.commands.GMSCommand;
+import org.example.commands.GMSPCommand;
 
 import java.time.Duration;
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class Main {
 
     public static void main(String[] args) {
-
-        Random random = new Random();
 
         MinecraftServer server = MinecraftServer.init();
         InstanceManager instanceManager = MinecraftServer.getInstanceManager();
@@ -39,9 +41,10 @@ public class Main {
         });
         instance.setChunkSupplier(LightingChunk::new);
 
-
         // Events
+        EventNode<PlayerEvent> playerMovementNode;
         {
+            //region Player Join Configuration
             GlobalEventHandler handler = MinecraftServer.getGlobalEventHandler();
 
             handler.addListener(AsyncPlayerConfigurationEvent.class, event -> {
@@ -53,6 +56,7 @@ public class Main {
                 final Player player = event.getPlayer();
                 player.setAllowFlying(true);
             });
+            //endregion
 
             //region Item Entity Interactions
             EventNode<Event> itemDropsNode = EventNode.all("itemDrops");
@@ -87,15 +91,15 @@ public class Main {
                 final float horzVelocity = 1.45f;
                 final float upVelocityMin = 1.4f;
                 final float upVelocityExtra = 1.85f;
-                item.setVelocity(new Vec(random.nextFloat(2), 0, random.nextFloat(2))
+                item.setVelocity(new Vec(ThreadLocalRandom.current().nextFloat(2), 0, ThreadLocalRandom.current().nextFloat(2))
                     .sub(1, 0, 1) // range of -1 to 1
                     .mul(horzVelocity)
-                    .add(0, upVelocityMin + random.nextFloat(upVelocityExtra), 0));
+                    .add(0, upVelocityMin + ThreadLocalRandom.current().nextFloat(upVelocityExtra), 0));
             });
             //endregion
 
             //region Custom Player Movement
-            EventNode<PlayerEvent> playerMovementNode = EventNode.type("playerMovement", EventFilter.PLAYER);
+            playerMovementNode = EventNode.value("playerMovement", EventFilter.PLAYER, (player) -> player.getGameMode() != GameMode.CREATIVE);
             handler.addChild(playerMovementNode);
 
             // Horizontal Dash
@@ -128,12 +132,17 @@ public class Main {
                         .mul(speed)
                         .add(0, extraVertVelocity, 0)));
             });
-
             //endregion
         }
 
-        MojangAuth.init();
-        server.start("0.0.0.0", 25565);
+        //region Commands
+        new GMCCommand().register();
+        new GMSCommand().register();
+        new GMACommand().register();
+        new GMSPCommand().register();
+        //endregion
 
+//        MojangAuth.init();
+        server.start("0.0.0.0", 25565);
     }
 }
